@@ -41,6 +41,8 @@ automations. The agent proposes, the user decides scope, then execution happens.
 | [whiteboard-to-notes](./whiteboard-to-notes/) | "transcribe this whiteboard", "turn these notes into markdown" | `NOTES.md` |
 | [slide-deck-reader](./slide-deck-reader/) | "summarize this deck", "what is this presentation arguing" | `DECK_SUMMARY.md` |
 | [data-profiler](./data-profiler/) | "what's in this file", "profile this data", "analyze this spreadsheet/deck/report" | `INSIGHTS.md` |
+| [pdf-to-book](./pdf-to-book/) | "convert this PDF to HTML", "make this book readable", "OCR this textbook" | `book.html` |
+| [session-handoff](./session-handoff/) | "session handoff", "save session", "create handoff", "export session context" | `handoff.md` + `handoff.html` |
 
 ### Engineering
 
