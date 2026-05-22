@@ -1,104 +1,167 @@
 # agent-skills
 
-Skills and MCP servers for Claude Code and model-agnostic agents. Each skill is a
-self-contained workflow; each MCP exposes reusable tools any agent can call mid-task.
+Workflow skills for Claude Code. Each skill is a `SKILL.md` file that guides an
+agent through a multi-step task — with user confirmation gates, structured output
+templates, and anti-patterns encoded from real sessions.
+
+> **Related:** [agent-mcps](https://github.com/Sakethv7/agent-mcps) — MCP servers
+> that expose the underlying tools (OCR, notebooks, git, data) these skills use.
+
+---
+
+## How skills work
+
+```mermaid
+flowchart TD
+    A[User drops a file or describes a task] --> B[Skill triggered by description match]
+    B --> C[Step 0: Triage\nUnderstand what we have]
+    C --> D[Step 1: Confirm scope with user\nDon't assume, don't proceed blindly]
+    D --> E[Step 2: Execute selected steps only\nSelective, not exhaustive]
+    E --> F[Step 3: Generate outputs\nAlways programmatic, never hardcoded]
+    F --> G[Step 4: Deliver\npresent_files or report paths]
+
+    style D fill:#fff3cd,stroke:#ffc107
+```
+
+The confirmation gate at Step 1 is intentional — skills are workflows, not
+automations. The agent proposes, the user decides scope, then execution happens.
 
 ---
 
 ## Skills
 
-Install any skill by copying its `SKILL.md` to `~/.claude/skills/<name>.md` and
-invoking with `/<name>` in Claude Code.
+### Document processing
 
-| Skill | What it does | Output |
+| Skill | Trigger phrases | Output |
 |---|---|---|
-| [scanned-doc-reader](./scanned-doc-reader/) | Scanned PDF → study materials via selective OCR | STUDY_GUIDE.md, CONCEPTS.md, viewer.html (opt-in) |
-| [paper-digest](./paper-digest/) | Academic paper → methodology, results, limitations, open questions | DIGEST.md |
-| [contract-extractor](./contract-extractor/) | Legal doc → parties, dates, obligations, flagged clauses | CONTRACT_SUMMARY.md |
-| [receipt-scanner](./receipt-scanner/) | Scanned receipts → expense CSV | expenses.csv, exceptions.txt |
-| [whiteboard-to-notes](./whiteboard-to-notes/) | Whiteboard photo → structured markdown (vision, not OCR) | NOTES.md |
-| [slide-deck-reader](./slide-deck-reader/) | Slide deck → argument extraction, not just bullet list | DECK_SUMMARY.md |
-| [repo-onboarder](./repo-onboarder/) | New codebase → entry points, data flow, architecture map | CODEBASE.md |
-| [debug-trail](./debug-trail/) | Live debug session capture: hypothesis → test → result → conclusion | DEBUG_TRAIL.md |
-| [data-profiler](./data-profiler/) | Any file (CSV, Excel, PPTX, DOCX, PDF) → insights, patterns, what it means | INSIGHTS.md |
-| [env-doctor](./env-doctor/) | Check deps, env vars, config, and service connectivity | HEALTH.md |
+| [scanned-doc-reader](./scanned-doc-reader/) | "OCR this", "make a study guide from this PDF", "extract text" | `STUDY_GUIDE.md`, `CONCEPTS.md`, `viewer.html` (opt-in) |
+| [paper-digest](./paper-digest/) | "summarize this paper", "what does this paper claim", "break down this study" | `DIGEST.md` |
+| [contract-extractor](./contract-extractor/) | "review this contract", "what am I agreeing to", "extract the key clauses" | `CONTRACT_SUMMARY.md` |
+| [receipt-scanner](./receipt-scanner/) | "extract expenses from these receipts", "build an expense report" | `expenses.csv`, `exceptions.txt` |
+| [whiteboard-to-notes](./whiteboard-to-notes/) | "transcribe this whiteboard", "turn these notes into markdown" | `NOTES.md` |
+| [slide-deck-reader](./slide-deck-reader/) | "summarize this deck", "what is this presentation arguing" | `DECK_SUMMARY.md` |
+| [data-profiler](./data-profiler/) | "what's in this file", "profile this data", "analyze this spreadsheet/deck/report" | `INSIGHTS.md` |
+
+### Engineering
+
+| Skill | Trigger phrases | Output |
+|---|---|---|
+| [repo-onboarder](./repo-onboarder/) | "get familiar with this codebase", "map the architecture", "where do I start" | `CODEBASE.md` |
+| [debug-trail](./debug-trail/) | "start a debug trail", "log this session", "track what we're trying" | `DEBUG_TRAIL.md` (append-only, live) |
+| [env-doctor](./env-doctor/) | "check if this is set up", "why isn't this running", "is my environment right" | `HEALTH.md` |
 
 ---
 
-## MCP Servers
+## Skill flows
 
-Add any MCP to Claude Code or Claude Desktop via `settings.json`:
+### Document skills — shared pattern
 
-```json
-{
-  "mcpServers": {
-    "doc-tools":        { "command": "uvx", "args": ["doc-tools-mcp"] },
-    "notebook-runner":  { "command": "uvx", "args": ["notebook-runner-mcp"] },
-    "git-context":      { "command": "uvx", "args": ["git-context-mcp"] },
-    "data-tools":       { "command": "uvx", "args": ["data-tools-mcp"] }
-  }
-}
+```mermaid
+flowchart LR
+    A[File input] --> B[Triage\npdftotext / vision / pptx parser]
+    B --> C{Has text layer?}
+    C -->|Yes| D[Use native text\nSkip OCR]
+    C -->|No| E[OCR only\nselected pages]
+    D & E --> F[Generate output\nvia script, not hardcoding]
+    F --> G[Deliver]
 ```
 
-| MCP | Tools | Dependencies |
-|---|---|---|
-| [doc-tools-mcp](./doc-tools-mcp/) | `pdf_info`, `detect_text_layer`, `extract_text`, `ocr_pages`, `rasterize_pages`, `extract_toc` | poppler, tesseract |
-| [notebook-runner-mcp](./notebook-runner-mcp/) | `get_notebook_info`, `list_cells`, `get_cell`, `run_cell`, `run_all`, `run_range`, `insert_cell`, `update_cell`, `delete_cell`, `clear_outputs`, `get_errors`, `get_variables`, `export_to_script` | nbformat, nbconvert, jupyter_client |
-| [git-context-mcp](./git-context-mcp/) | `git_status`, `git_log`, `git_diff`, `git_blame`, `list_branches`, `create_branch`, `checkout`, `stash`, `pr_list`, `pr_view`, `pr_diff`, `pr_create`, `pr_comment`, `pr_merge`, `pr_checks`, `mr_list`, `mr_view`, `mr_create` | gh CLI (GitHub), glab CLI (GitLab) |
-| [data-tools-mcp](./data-tools-mcp/) | `profile_file`, `list_sheets`, `sample_file`, `find_column_in_file`, `compare_schemas`, `list_tables`, `describe_table`, `sample_rows`, `find_column`, `run_query` | pandas, openpyxl, sqlalchemy, pyarrow |
+### repo-onboarder
 
----
+```mermaid
+flowchart LR
+    A[Clone / enter repo] --> B[Parallel reads\nstructure · deps · git log · config]
+    B --> C[Find entry points\nmain · routes · CLI commands]
+    C --> D[Trace one data flow\nend-to-end]
+    D --> E[Read tests\nhonest docs]
+    E --> F[CODEBASE.md]
+```
 
-## Skills vs MCPs
+### debug-trail
 
-**Skills** are workflow templates — multi-step processes with user confirmation
-gates. Use them when you want guided, interactive document processing.
+```mermaid
+flowchart TD
+    A[Bug observed] --> B[Open DEBUG_TRAIL.md\ncreate if missing]
+    B --> C[Entry: Hypothesis]
+    C --> D[Entry: Test run]
+    D --> E[Entry: Result + Conclusion]
+    E --> F{Resolved?}
+    F -->|No| C
+    F -->|Yes| G[Resolution section\nroot cause · fix · prevention]
 
-**MCPs** expose raw tools any agent can call mid-task without an explicit workflow.
-Use them when you need PDF/notebook/git/data capabilities composable with other work.
+    style F fill:#f8f9fa,stroke:#6c757d
+```
 
-They complement each other: the document skills use `doc-tools-mcp` under the hood
-when it's connected.
+### env-doctor
+
+```mermaid
+flowchart LR
+    A[Project dir] --> B[Detect runtime\n.python-version · go.mod · package.json]
+    B --> C[Check deps\npip check · npm ls · go mod verify]
+    C --> D[Diff env vars\n.env.example vs actual]
+    D --> E[Ping services\nPG · Redis · external APIs]
+    E --> F[HEALTH.md\n✅ WARN ❌ ordered by severity]
+```
 
 ---
 
 ## Install
 
+Copy any skill's `SKILL.md` into your Claude Code skills directory:
+
 ```bash
-# Skills — copy to Claude Code skills dir
+# Single skill
 cp repo-onboarder/SKILL.md ~/.claude/skills/repo-onboarder.md
 
-# MCPs — install and configure
-pip install doc-tools-mcp notebook-runner-mcp git-context-mcp data-tools-mcp
-# or run without installing: uvx <package-name>
+# All skills at once
+for dir in */; do
+  skill="$dir/SKILL.md"
+  [ -f "$skill" ] && cp "$skill" ~/.claude/skills/"${dir%/}.md"
+done
 ```
 
-### System dependencies
+Then invoke in Claude Code:
 
-```bash
-# macOS (for doc-tools)
-brew install poppler tesseract
-
-# Ubuntu/Debian
-sudo apt-get install poppler-utils tesseract-ocr
-
-# GitHub ops (git-context-mcp)
-brew install gh && gh auth login
-
-# GitLab ops (git-context-mcp)
-brew install glab && glab auth login
 ```
+/repo-onboarder
+/debug-trail
+/env-doctor
+/scanned-doc-reader
+/data-profiler
+```
+
+---
+
+## Skills vs MCPs
+
+These skills focus on **guided workflows** — they stop and ask before doing expensive
+operations (OCR, full codebase reads, full-doc analysis). That's intentional.
+
+For raw, composable tools the agent calls mid-task without a workflow:
+→ [agent-mcps](https://github.com/Sakethv7/agent-mcps)
+
+The two repos work well together. Skills use MCP tools when they're connected;
+MCP tools are available to any task without explicitly invoking a skill.
 
 ---
 
 ## Adding a skill
 
-Each skill directory needs a `SKILL.md` with YAML frontmatter:
+A minimal skill needs a `SKILL.md` with YAML frontmatter:
 
 ```yaml
 ---
-name: skill-name
+name: my-skill
 description: >
-  What it does and when to trigger it.
+  What it does and when to trigger it. Be specific about trigger phrases.
+  Claude uses this description to decide whether to use the skill.
 ---
+
+# My Skill
+
+## Step 1 — ...
+## Step 2 — ...
 ```
+
+The description field is the trigger mechanism — make it concrete and include
+example phrases a user would actually say.
