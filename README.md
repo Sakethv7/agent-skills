@@ -46,6 +46,30 @@ sudo apt-get install poppler-utils tesseract-ocr
 `whiteboard-to-notes` and vision-heavy paths use the language model's vision
 capability directly — no tesseract needed.
 
+## MCP server
+
+[`doc-tools-mcp/`](./doc-tools-mcp/) is a Python MCP server that exposes the same
+PDF and OCR operations as callable tools — for developers who want to integrate
+document capabilities into their own agents rather than use the skill workflows.
+
+```bash
+# Run with uvx (no install needed)
+uvx doc-tools-mcp
+
+# Or install
+pip install doc-tools-mcp
+```
+
+Add to Claude Desktop or Claude Code config:
+```json
+{ "mcpServers": { "doc-tools": { "command": "uvx", "args": ["doc-tools-mcp"] } } }
+```
+
+Tools exposed: `pdf_info`, `detect_text_layer`, `extract_text`, `ocr_pages`,
+`rasterize_pages`, `extract_toc`.
+
+---
+
 ## Adding a skill
 
 Each skill directory needs at minimum a `SKILL.md` with YAML frontmatter:
